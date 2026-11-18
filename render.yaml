@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# Creates a PAID web service and persistent disk. Review Render's price before deploy.
+services:
+  - type: web
+    name: mr-romine-design-lab
+    runtime: node
+    plan: 0.5c-512mb
+    region: ohio
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: classroom-progress
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: TEACHER_USERNAME
+        value: mrromine
+      - key: TEACHER_PASSWORD
+        sync: false
