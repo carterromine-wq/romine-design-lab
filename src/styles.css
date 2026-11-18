@@ -126,3 +126,111 @@ summary::-webkit-details-marker { display: none; }
 @media (max-width: 900px) { .studio-sidebar { transform: translateX(-100%); transition: transform .2s; width: 246px; }.studio-sidebar.open { transform: translateX(0); }.studio-workspace { margin-left: 0; }.mobile-menu { display: flex; background: none; color: #86868b; padding: 0 8px 0 0; }.nav-scrim { position: fixed; inset: 0; z-index: 29; background: #1d1d1f35; }.studio-main { max-width: 900px; padding-top: 35px; }.login-grid { gap: 35px; }.login-card { padding: 28px; }.login-story h1 { font-size: 44px; }.login-story > p:not(.studio-eyebrow) { font-size: 13px; }.login-art { margin-top: 35px; } }
 @media (max-width: 650px) { .login-page { padding: 24px 22px 0; }.login-header > span { font-size: 10px; }.login-grid { display: flex; flex-direction: column; padding: 38px 0; gap: 30px; align-items: stretch; }.login-story h1 { font-size: 42px; letter-spacing: -1.8px; }.login-story { text-align: center; }.login-story > p:not(.studio-eyebrow) { margin-top: 16px; }.login-story > .studio-eyebrow { font-size: 8px; }.login-art { display: none; }.login-story > .color-signature { display: flex; justify-content: center; margin-top: 23px; }.login-card { padding: 27px; border-radius: 19px; max-width: 450px; margin: auto; }.login-card h2 { font-size: 26px; }.login-icon { margin-bottom: 21px; width: 44px; height: 44px; border-radius: 13px; }.login-footer { font-size: 9px; }.studio-topbar { padding: 0 20px; height: 65px; }.studio-topbar > div:first-child { gap: 8px; font-size: 10px; }.studio-topbar > div:first-child > span { display: none; }.studio-topbar > div:first-child > svg { display: none; }.account-tools { gap: 13px; }.studio-save { font-size: 9px; }.studio-main { padding: 28px 18px; }.lesson-heading { align-items: flex-start; gap: 12px; margin-bottom: 23px; }.lesson-heading .studio-eyebrow { font-size: 8px; letter-spacing: .8px; }.lesson-heading .studio-eyebrow span { margin: 0 4px; }.lesson-heading h1 { font-size: 30px; letter-spacing: -1px; line-height: 1.15; }.lesson-heading > div > p:last-child { font-size: 12px; }.notes-button { padding: 9px; margin-top: 3px; }.notes-button > span { display: none; }.guided-steps { padding: 4px; gap: 2px; margin-bottom: 20px; }.guided-steps button { font-size: 11px; padding: 11px 6px; gap: 5px; }.guided-steps button svg { width: 13px; }.lesson-stage { padding: 24px 19px; border-radius: 15px; }.stage-label { font-size: 8px; }.lesson-stage > h2 { font-size: 25px; }.stage-intro { font-size: 13px; }.learn-layout { display: flex; flex-direction: column-reverse; margin-top: 22px; gap: 22px; }.lesson-mini-art { width: 100%; }.lesson-mini-art .lesson-art { height: 160px; }.lesson-prose { font-size: 13px; }.goals-box { padding: 19px; margin-top: 23px; }.goals-box h3 { font-size: 13px; }.goals-box p { font-size: 12px; }.optional-detail dl { grid-template-columns: 1fr; gap: 17px; }.stage-bottom { align-items: stretch; flex-direction: column; gap: 16px; padding-top: 18px; }.stage-bottom > span { font-size: 10px; }.stage-bottom > .primary-button { width: 100%; }.lesson-subfooter { font-size: 9px; flex-direction: column; align-items: flex-start; gap: 10px; }.studio-footer { margin: 0 18px; font-size: 8px; }.guided-video-frame { min-height: 200px; border-radius: 9px; }.guided-video-controls { flex-wrap: wrap; gap: 12px; }.guided-video-controls > div { min-width: 150px; }.guided-video-controls .button { min-width: 94px; }.companion-strip { gap: 10px; padding: 14px; }.companion-strip strong { font-size: 11px; }.companion-strip small { font-size: 10px; }.companion-strip > svg:first-child { width: 19px; }.focused-task { padding: 20px 17px; gap: 15px; flex-direction: column; }.task-number { height: 34px; width: 34px; border-radius: 10px; font-size: 14px; }.focused-task h3 { font-size: 21px; }.focused-task > div > p:not(.studio-eyebrow) { font-size: 13px; }.focused-task .primary-button { width: 100%; }.project-link-row { flex-direction: column; }.project-link-row .secondary-button { align-self: flex-end; min-height: 36px; padding: 7px 13px; font-size: 11px; }.quiz-options > button { font-size: 12px; gap: 10px; padding: 12px; }.completion-panel { padding: 38px 23px; }.completion-panel h2 { font-size: 29px; }.completion-panel > p:not(.studio-eyebrow) { font-size: 13px; }.teacher-heading { align-items: flex-start; flex-direction: column; gap: 20px; }.teacher-heading h1, .help-page > h1 { font-size: 31px; }.teacher-heading > .primary-button { font-size: 12px; min-height: 40px; }.teacher-stats { gap: 9px; }.teacher-stats > div { padding: 17px 13px; border-radius: 12px; }.teacher-stats strong { font-size: 27px; }.teacher-stats p { font-size: 9px; }.teacher-stats > div > span { top: 18px; right: 12px; }.teacher-stats svg { width: 14px; }.roster-toolbar { flex-wrap: wrap; padding: 18px; }.roster-toolbar h2 { flex: 1; }.roster-search { order: 3; width: 100%; padding: 9px 10px; }.roster-search input { flex: 1; width: 100%; }.roster-toolbar .secondary-button span { display: none; }.roster-toolbar .secondary-button { min-height: 33px; padding: 7px 10px; }td, th { padding: 13px 15px; }.roster-scroll table { min-width: 480px; }.empty-roster { padding: 40px 23px; }.empty-roster h3 { font-size: 21px; }.empty-roster p { font-size: 12px; }.teacher-bottom { grid-template-columns: 1fr; gap: 24px; }.teacher-dialog { padding: 23px; border-radius: 19px; }.teacher-dialog h2 { font-size: 26px; }.student-lesson-list summary { gap: 10px; font-size: 11px; }.student-lesson-list small { font-size: 9px; }.help-card { padding: 24px 21px; }.help-card h2 { font-size: 21px; }.shortcut-list { grid-template-columns: 1fr; }.setup-item { gap: 12px; }.save-error { align-items: flex-start; font-size: 11px; }.teacher-notice { font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { scroll-behavior: auto!important; animation-duration: .001ms!important; transition-duration: .001ms!important; } }
+
+/* Student enrollment and account access */
+.login-grid.signup-grid { align-items: start; }
+.signup-grid .login-story { position: sticky; top: 60px; padding-top: 50px; }
+.auth-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #f5f5f7; margin: 0 0 27px; }
+.auth-tabs > button { flex: 1; padding: 10px 8px; min-height: 39px; border: 0; border-radius: 9px; background: transparent; color: #76767d; font-size: 12px; font-weight: 550; }
+.auth-tabs > button[aria-selected="true"] { background: #fff; color: #1d1d1f; box-shadow: 0 2px 5px #1d1d1f0c; }
+.auth-tabs > button:focus-visible { outline: 2px solid #007aff; outline-offset: 1px; }
+.auth-intro { color: var(--studio-muted); font-size: 13px; line-height: 1.8; margin-top: 11px; }
+.signup-icon { background: #edf9f0; color: #289846; }
+.class-code-entry { margin: 22px 0 0; }
+.class-code-entry input { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 1.5px; font-size: 17px; }
+.class-code-entry input::placeholder { font-family: inherit; letter-spacing: .4px; font-size: 13px; }
+.class-code-entry > small, #class-auth-form > small { display: block; font-size: 10px; margin-top: 6px; line-height: 1.7; }
+.login-card #class-auth-form { margin-top: 21px; }
+.google-auth-option { margin-top: 24px; }
+.google-signin { min-width: 0; }
+.google-button-mount { width: 100%; min-height: 40px; }
+.google-button-mount[hidden] { display: none; }
+.google-status { display: flex; align-items: center; justify-content: center; gap: 8px; color: #86868b; font-size: 12px; padding: 12px 0; line-height: 1.7; }
+.google-error .text-link { display: inline-flex; gap: 6px; align-items: center; margin-top: 9px; font-size: 12px; }
+.auth-small { text-align: center; color: #86868b; font-size: 10px; line-height: 1.8; margin-top: 9px; overflow-wrap: anywhere; }
+.google-code-hint { font-size: 12px; line-height: 1.8; padding: 13px 15px; border-radius: 10px; background: #f7f9fc; color: #777781; }
+.auth-divider { display: flex; align-items: center; gap: 13px; color: #929299; font-size: 10px; margin: 22px 0 0; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #ededf1; }
+.auth-divider > span { white-space: nowrap; }
+.login-help strong { font-weight: 550; color: #676771; }
+.auth-options-error { margin: 19px 0; padding: 13px 15px; border-radius: 10px; background: #fffaf0; color: #8b7041; font-size: 11px; line-height: 1.8; }
+.auth-options-error .text-link { font-size: 11px; margin-top: 6px; }
+.enrollment-paused { border: 1px solid #eee5d1; background: #fffcf6; border-radius: 13px; padding: 24px 20px; margin: 24px 0; text-align: center; }
+.enrollment-paused > svg { color: #b98a21; }
+.enrollment-paused h3 { font-size: 17px; font-weight: 600; margin-top: 10px; }
+.enrollment-paused p { font-size: 12px; line-height: 1.8; color: #8d846c; margin: 11px 0 18px; }
+.enrollment-card { border: 1px solid #e4e9f2; border-radius: 19px; padding: 28px 29px 22px; margin: 26px 0; background: #fff; }
+.enrollment-heading { display: flex; align-items: flex-start; gap: 15px; }
+.enrollment-icon { display: flex; justify-content: center; align-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px; background: #eef6ff; color: #007aff; }
+.enrollment-heading > div { flex: 1; }
+.enrollment-heading .studio-eyebrow { color: #0071e3; font-size: 8px; }
+.enrollment-heading h2 { font-size: 23px; font-weight: 600; letter-spacing: -.6px; margin: 4px 0 8px; }
+.enrollment-heading > div > p:last-child { color: #86868b; line-height: 1.8; font-size: 12px; max-width: 530px; }
+.enrollment-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; font-size: 9px; color: #9a7628; background: #fff8e5; margin-top: 2px; }
+.enrollment-status > i { height: 5px; width: 5px; border-radius: 50%; background: currentColor; }
+.enrollment-status.is-open { color: #278c42; background: #eef9f1; }
+.enrollment-share-grid { display: grid; grid-template-columns: minmax(190px, .85fr) minmax(0, 1.35fr); gap: 28px; margin-top: 27px; }
+.enrollment-field-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.enrollment-field-label label { font-size: 11px; }
+.enrollment-field-label .text-link { display: inline-flex; gap: 5px; align-items: center; font-size: 10px; }
+.enrollment-share-grid input { height: 48px; background: #fbfbfd; }
+.enrollment-code input { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 600; letter-spacing: 2.2px; font-size: 22px; color: #1d1d1f; }
+.enrollment-url input { font-size: 12px; color: #686874; }
+.enrollment-share-grid small { display: block; margin-top: 6px; font-size: 10px; }
+.enrollment-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.enrollment-controls > .quiet-button { font-size: 11px; min-height: 35px; padding: 7px 10px; }
+.enrollment-controls > p { width: 100%; font-size: 10px; color: #93939a; line-height: 1.8; margin-top: 0; }
+.rotate-confirm { margin: 18px 0; padding: 15px 17px; background: #fff9eb; border: 1px solid #f4e3b9; border-radius: 11px; }
+.rotate-confirm p { font-size: 12px; color: #8a713c; line-height: 1.8; }
+.rotate-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rotate-confirm button { min-height: 36px; font-size: 11px; padding: 8px 13px; }
+.enrollment-google { display: flex; align-items: center; gap: 12px; padding-top: 20px; margin-top: 22px; border-top: 1px solid #eeeef2; }
+.provider-mark { display: flex; align-items: center; justify-content: center; border-radius: 9px; width: 33px; height: 33px; background: #f4f4f7; color: #86868b; flex-shrink: 0; }
+.provider-mark.is-ready { background: #eef9f1; color: #278c42; }
+.enrollment-google > div { flex: 1; min-width: 0; }
+.enrollment-google strong { font-weight: 550; font-size: 12px; }
+.enrollment-google p { color: #93939a; line-height: 1.8; font-size: 10px; margin-top: 4px; }
+.enrollment-google > .text-link { font-size: 10px; display: inline-flex; align-items: center; white-space: nowrap; gap: 3px; }
+.enrollment-notice { display: flex; align-items: flex-start; gap: 7px; color: #278c42; font-size: 11px; line-height: 1.8; margin-top: 15px; }
+.enrollment-notice > svg { flex-shrink: 0; margin-top: 2px; }
+.enrollment-error > .text-link { margin-top: 9px; font-size: 12px; }
+.google-roster-tag { display: inline-block; margin-left: 6px; color: #278c42; background: #eef9f1; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 500; }
+.google-account-card { display: flex; align-items: flex-start; gap: 18px; }
+.account-card-icon { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 42px; height: 42px; background: #eef9f1; color: #2c9647; border-radius: 12px; }
+.google-account-card > div { min-width: 0; flex: 1; }
+.google-account-card h2 { margin-bottom: 11px; }
+.google-account-card p { color: #86868b; font-size: 12px; line-height: 1.9; margin-top: 6px; overflow-wrap: anywhere; }
+.google-account-card p strong { color: #64646b; font-weight: 550; }
+.google-account-card .secondary-button { margin-top: 16px; font-size: 12px; }
+.account-google-button { max-width: 360px; margin-top: 20px; }
+@media (max-width: 900px) {
+  .enrollment-card { padding: 24px; }
+  .enrollment-heading { flex-wrap: wrap; }
+  .enrollment-status { margin-left: 63px; margin-top: -7px; }
+  .enrollment-share-grid { gap: 20px; }
+}
+@media (max-width: 650px) {
+  .login-card { width: 100%; }
+  .login-grid.signup-grid { align-items: stretch; }
+  .signup-grid .login-story { position: static; padding-top: 0; }
+  .signup-grid .login-story h1 { font-size: 33px; }
+  .signup-grid .login-story > p:not(.studio-eyebrow) { display: none; }
+  .signup-grid .login-story > .color-signature { margin-top: 16px; }
+  .auth-tabs { margin-bottom: 23px; }
+  .enrollment-card { padding: 22px 19px; border-radius: 15px; }
+  .enrollment-heading { gap: 12px; }
+  .enrollment-icon { width: 40px; height: 40px; border-radius: 11px; }
+  .enrollment-icon svg { width: 21px; }
+  .enrollment-heading h2 { font-size: 22px; }
+  .enrollment-heading .studio-eyebrow { font-size: 7px; letter-spacing: .9px; }
+  .enrollment-status { margin-left: 52px; }
+  .enrollment-share-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 24px; }
+  .enrollment-code input { font-size: 24px; }
+  .enrollment-google { flex-wrap: wrap; align-items: flex-start; }
+  .enrollment-google > .text-link { margin-left: 45px; }
+  .enrollment-google > div { flex-basis: calc(100% - 45px); }
+  .google-account-card { padding: 23px 19px; gap: 13px; flex-wrap: wrap; }
+  .google-account-card h2 { font-size: 21px; }
+  .google-account-card > div { flex-basis: calc(100% - 55px); }
+  .account-google-button { margin-left: -55px; }
+}

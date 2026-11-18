@@ -7,6 +7,7 @@ import { resolve, extname, sep, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { lessons, type Lesson } from '../course-data';
 import { videoDurations } from './video-durations';
+import { createGoogleCredentialVerifier, type GoogleCredentialVerifier, type GoogleIdentity } from './google-auth';
 import {
   emptyProgress, emptyProgressRecord, decodeStoredProgress, validateProgressPatch,
   mergeProgress, lessonUnlocked, maximumStep, assertSequentialPatch, ProgressValidationError,
@@ -17,22 +18,37 @@ const scrypt = promisify(scryptCallback);
 const SESSION_MS = 1000 * 60 * 60 * 24 * 7;
 const BODY_LIMIT = 65_536;
 const COOKIE = 'romine_session';
+const GOOGLE_COOKIE = 'romine_google_challenge';
+const GOOGLE_CHALLENGE_MS = 10 * 60_000;
+const CLASS_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const lessonMap = new Map(lessons.map(lesson => [lesson.id, lesson]));
 const usernamePattern = /^[a-z0-9][a-z0-9._-]{2,39}$/;
 const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
 type UserRow = { id: string; username: string; display_name: string; password_hash: string; role: 'teacher' | 'student'; disabled: number; created_at: string };
 type SessionRow = { token_hash: string; user_id: string; expires_at: number };
 type PlaybackRow = { token_hash: string; session_hash: string; user_id: string; lesson_id: string; last_at: number; last_position: number; last_state: string; last_visible: number };
-type PublicUser = { id: string; username: string; displayName: string; role: 'teacher' | 'student' };
-type AppOptions = { dataDir?: string; teacherUsername?: string; teacherPassword?: string; production?: boolean; publicOrigin?: string; clientDir?: string; now?: () => number };
+type PublicUser = { id: string; username: string; displayName: string; role: 'teacher' | 'student'; googleLinked: boolean; googleEmail: string | null };
+type EnrollmentRow = { id: number; enabled: number; join_code: string };
+type GoogleAccountRow = { user_id: string; subject: string; email: string };
+type GoogleChallengeRow = { token_hash: string; nonce_hash: string; intent: 'signin' | 'link'; user_id: string | null; session_hash: string | null; expires_at: number };
+type AppOptions = { dataDir?: string; teacherUsername?: string; teacherPassword?: string; production?: boolean; publicOrigin?: string; clientDir?: string; now?: () => number; googleClientId?: string; googleAllowedDomain?: string; verifyGoogleCredential?: GoogleCredentialVerifier };
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
-function publicUser(user: UserRow): PublicUser {
-  return { id: user.id, username: user.username, displayName: user.display_name, role: user.role };
-}
 function tokenHash(token: string): string { return createHash('sha256').update(token).digest('hex'); }
+function secureEqual(left: string, right: string): boolean { return timingSafeEqual(Buffer.from(tokenHash(left), 'hex'), Buffer.from(tokenHash(right), 'hex')); }
+function readCookie(req: IncomingMessage, name: string): string | undefined {
+  return (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+function appendCookie(res: ServerResponse, value: string): void {
+  const existing = res.getHeader('Set-Cookie');
+  res.setHeader('Set-Cookie', [...(Array.isArray(existing) ? existing.map(String) : existing ? [String(existing)] : []), value]);
+}
+function newClassCode(): string {
+  // Ten characters from a 32-character alphabet provide 50 bits of entropy.
+  return [...randomBytes(10)].map(byte => CLASS_CODE_ALPHABET[byte & 31]).join('');
+}
 function object(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function newPassword(): string {
   // Rejection sampling avoids modulo bias and confusing characters on printed login cards.
@@ -101,6 +117,15 @@ export async function createApp(options: AppOptions = {}) {
   if (production && !rawOrigin) throw new Error('Set PUBLIC_ORIGIN to the HTTPS app URL (Render supplies RENDER_EXTERNAL_URL automatically).');
   const publicOrigin = rawOrigin ? new URL(rawOrigin).origin : null;
   if (production && publicOrigin && !publicOrigin.startsWith('https://')) throw new Error('The production origin must use HTTPS.');
+  const requestedGoogleClientId = (options.googleClientId ?? process.env.GOOGLE_CLIENT_ID ?? '').trim();
+  const requestedGoogleDomain = (options.googleAllowedDomain ?? process.env.GOOGLE_ALLOWED_DOMAIN ?? '').trim().toLowerCase();
+  const validGoogleId = /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(requestedGoogleClientId);
+  const validGoogleDomain = !requestedGoogleDomain || (requestedGoogleDomain.length <= 253 && requestedGoogleDomain.includes('.') && requestedGoogleDomain.split('.').every(part => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(part)));
+  const googleEnabled = validGoogleId && validGoogleDomain;
+  const googleClientId = googleEnabled ? requestedGoogleClientId : null;
+  const googleDomain = validGoogleDomain && requestedGoogleDomain ? requestedGoogleDomain : null;
+  if ((requestedGoogleClientId && !validGoogleId) || !validGoogleDomain) console.warn('Google sign-in is disabled. Check GOOGLE_CLIENT_ID and GOOGLE_ALLOWED_DOMAIN.');
+  const verifyGoogleCredential = options.verifyGoogleCredential || createGoogleCredentialVerifier();
   const clientDir = resolve(options.clientDir || './dist/client');
   const now = options.now || Date.now;
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
@@ -137,7 +162,21 @@ export async function createApp(options: AppOptions = {}) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id TEXT NOT NULL,
       student_id TEXT, action TEXT NOT NULL, details TEXT NOT NULL, created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS enrollment_settings (
+      id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+      join_code TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS google_accounts (
+      user_id TEXT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject TEXT PRIMARY KEY, email TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS google_challenges (
+      token_hash TEXT PRIMARY KEY, nonce_hash TEXT NOT NULL,
+      intent TEXT NOT NULL CHECK(intent IN ('signin','link')),
+      user_id TEXT, session_hash TEXT, expires_at INTEGER NOT NULL
+    );
   `);
+  db.prepare('INSERT OR IGNORE INTO enrollment_settings(id,enabled,join_code) VALUES(1,1,?)').run(newClassCode());
   const isoNow = () => new Date(now()).toISOString();
   let teacher = db.prepare("SELECT * FROM users WHERE role='teacher' LIMIT 1").get() as UserRow | undefined;
   if (!teacher) {
@@ -166,6 +205,39 @@ export async function createApp(options: AppOptions = {}) {
     bucket.count++; rates.set(key, bucket);
     if (bucket.count > limit) throw new HttpError(429, 'Too many attempts. Wait a few minutes and try again.');
   }
+  function publicUser(user: UserRow): PublicUser {
+    const google = db.prepare('SELECT email FROM google_accounts WHERE user_id=?').get(user.id) as { email: string } | undefined;
+    return { id: user.id, username: user.username, displayName: user.display_name, role: user.role, googleLinked: !!google, googleEmail: google?.email || null };
+  }
+  function enrollment() {
+    const settings = db.prepare('SELECT * FROM enrollment_settings WHERE id=1').get() as EnrollmentRow;
+    return { enabled: !!settings.enabled, joinCode: settings.join_code, googleEnabled, googleDomain };
+  }
+  function requireEnrollment(classCode: unknown, peer: string): void {
+    const settings = enrollment();
+    if (!settings.enabled) throw new HttpError(403, 'Student sign-ups are closed. Ask Mr. Romine for help.');
+    const normalized = typeof classCode === 'string' && classCode.length <= 80 ? classCode.replace(/[\s-]/g, '').toUpperCase() : '';
+    if (!secureEqual(normalized, settings.joinCode)) {
+      rate(`enrollment-invalid:${peer}`, 40, 5 * 60_000);
+      throw new HttpError(403, 'That class code is not valid. Ask Mr. Romine for the current code.');
+    }
+  }
+  function googleChallengeContext(req: IncomingMessage, challenge: GoogleChallengeRow): UserRow | null {
+    if (challenge.expires_at <= now()) throw new HttpError(401, 'Google sign-in expired. Try the Google button again.');
+    const found = session(req);
+    if (challenge.intent === 'link') {
+      if (!found || found.user.role !== 'student' || found.user.id !== challenge.user_id || found.hash !== challenge.session_hash) throw new HttpError(401, 'Your account session changed. Sign in again before connecting Google.');
+      return found.user;
+    }
+    if (found) throw new HttpError(409, 'You are already signed in. Use Connect Google from your account instead.');
+    return null;
+  }
+  function validateGoogleIdentity(identity: GoogleIdentity, challenge: GoogleChallengeRow): void {
+    if (!object(identity) || typeof identity.sub !== 'string' || !identity.sub || identity.sub.length > 255 || typeof identity.email !== 'string' || identity.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity.email) || identity.email_verified !== true) throw new HttpError(401, 'Google could not verify this account. Try another school-approved account.');
+    if (typeof identity.nonce !== 'string' || !secureEqual(tokenHash(identity.nonce), challenge.nonce_hash)) throw new HttpError(401, 'Google sign-in could not be matched to this browser. Try again.');
+    // Google Workspace membership is represented by hd, not the email suffix.
+    if (googleDomain && (typeof identity.hd !== 'string' || identity.hd.toLowerCase() !== googleDomain)) throw new HttpError(403, 'Use the school Google account approved for this class.');
+  }
   function readProgress(userId: string): ProgressRecord {
     const record = emptyProgressRecord();
     const rows = db.prepare('SELECT lesson_id,data,updated_at FROM lesson_progress WHERE user_id=?').all(userId) as {lesson_id:string;data:string;updated_at:string}[];
@@ -185,14 +257,25 @@ export async function createApp(options: AppOptions = {}) {
       .run(userId, lessonId, progress.currentStep, timestamp);
   }
   function session(req: IncomingMessage): { user: UserRow; hash: string } | null {
-    const cookies = req.headers.cookie || '';
-    const token = cookies.split(';').map(part => part.trim()).find(part => part.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1);
+    const token = readCookie(req, COOKIE);
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
     const hash = tokenHash(token);
     const stored = db.prepare('SELECT * FROM sessions WHERE token_hash=? AND expires_at>?').get(hash, now()) as SessionRow | undefined;
     if (!stored) return null;
     const user = db.prepare('SELECT * FROM users WHERE id=? AND disabled=0').get(stored.user_id) as UserRow | undefined;
     return user ? { user, hash } : null;
+  }
+  function issueSession(req: IncomingMessage, res: ServerResponse, userId: string): void {
+    const previous = session(req);
+    if (previous) {
+      db.prepare('DELETE FROM sessions WHERE token_hash=?').run(previous.hash);
+      db.prepare('DELETE FROM playback_sessions WHERE session_hash=?').run(previous.hash);
+    }
+    const token = randomBytes(32).toString('hex');
+    db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(now());
+    db.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(tokenHash(token), userId, now() + SESSION_MS);
+    db.prepare('DELETE FROM sessions WHERE user_id=? AND token_hash NOT IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY expires_at DESC,rowid DESC LIMIT 8)').run(userId, userId);
+    appendCookie(res, `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MS / 1000}${production ? '; Secure' : ''}`);
   }
   function signedIn(req: IncomingMessage) {
     const found = session(req);
@@ -229,7 +312,8 @@ export async function createApp(options: AppOptions = {}) {
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com; connect-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: https://i.ytimg.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://accounts.google.com/gsi/; connect-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com/gsi/; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
   };
   async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
     for (const [key, value] of Object.entries(securityHeaders)) res.setHeader(key, value);
@@ -241,6 +325,116 @@ export async function createApp(options: AppOptions = {}) {
       if (path.startsWith('/api/') && !['GET','HEAD'].includes(method)) originGuard(req);
       if (path === '/api/health' && method === 'GET') { db.prepare('SELECT 1').get(); json(res, 200, { ok: true }); return; }
       if (path === '/api/auth/me' && method === 'GET') { const found = session(req); json(res, 200, { user: found ? publicUser(found.user) : null }); return; }
+      if (path === '/api/auth/options' && method === 'GET') {
+        json(res, 200, { registrationEnabled: enrollment().enabled, googleEnabled, googleClientId, googleDomain }); return;
+      }
+      if (path === '/api/auth/register' && method === 'POST') {
+        const body = await readBody(req);
+        if (session(req)) throw new HttpError(409, 'Sign out before creating a new student account.');
+        const peer = req.socket.remoteAddress || 'unknown';
+        rate(`registration:${peer}`, 120, 5 * 60_000);
+        const student = validateStudent(body);
+        if (typeof body.password !== 'string' || body.password.length < 10 || body.password.length > 128) throw new HttpError(400, 'Choose a password with 10–128 characters.');
+        requireEnrollment(body.classCode, peer);
+        if (db.prepare('SELECT 1 FROM users WHERE username=?').get(student.username)) throw new HttpError(409, 'That username is already in use. Sign in or choose another username.');
+        const hash = await passwordHash(body.password);
+        // Enrollment may be closed or its code rotated during password hashing.
+        requireEnrollment(body.classCode, peer);
+        if (session(req)) throw new HttpError(409, 'Your sign-in changed. Refresh the page before creating another account.');
+        const id = randomUUID();
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          db.prepare('INSERT INTO users(id,username,display_name,password_hash,role,created_at) VALUES(?,?,?,?,?,?)')
+            .run(id, student.username, student.displayName, hash, 'student', isoNow());
+          audit(id, id, 'student.self_registered', { method: 'password' });
+          db.exec('COMMIT');
+        } catch (error) { db.exec('ROLLBACK'); throw error; }
+        issueSession(req, res, id);
+        json(res, 201, { user: publicUser(findStudent(id)) }); return;
+      }
+      if (path === '/api/auth/google/challenge' && method === 'POST') {
+        if (!googleEnabled) throw new HttpError(503, 'Google sign-in is not set up yet. Use your course username and password.');
+        const body = await readBody(req);
+        if (body.intent !== 'signin' && body.intent !== 'link') throw new HttpError(400, 'Choose whether to sign in or connect Google.');
+        const found = session(req);
+        if (body.intent === 'link' && (!found || found.user.role !== 'student')) throw new HttpError(403, 'Sign in to your student account before connecting Google.');
+        if (body.intent === 'signin' && found) throw new HttpError(409, 'You are already signed in. Use Connect Google from your account instead.');
+        rate(`google-challenge:${req.socket.remoteAddress || 'unknown'}`, 300, 5 * 60_000);
+        const oldToken = readCookie(req, GOOGLE_COOKIE);
+        if (oldToken && /^[a-f0-9]{64}$/.test(oldToken)) db.prepare('DELETE FROM google_challenges WHERE token_hash=?').run(tokenHash(oldToken));
+        db.prepare('DELETE FROM google_challenges WHERE expires_at<=?').run(now());
+        const token = randomBytes(32).toString('hex');
+        const nonce = randomBytes(32).toString('hex');
+        db.prepare('INSERT INTO google_challenges(token_hash,nonce_hash,intent,user_id,session_hash,expires_at) VALUES(?,?,?,?,?,?)')
+          .run(tokenHash(token), tokenHash(nonce), body.intent, body.intent === 'link' ? found!.user.id : null, body.intent === 'link' ? found!.hash : null, now() + GOOGLE_CHALLENGE_MS);
+        appendCookie(res, `${GOOGLE_COOKIE}=${token}; Path=/api/auth/google; HttpOnly; SameSite=Strict; Max-Age=${GOOGLE_CHALLENGE_MS / 1000}${production ? '; Secure' : ''}`);
+        json(res, 200, { nonce }); return;
+      }
+      if (path === '/api/auth/google' && method === 'POST') {
+        if (!googleEnabled || !googleClientId) throw new HttpError(503, 'Google sign-in is not set up yet. Use your course username and password.');
+        const body = await readBody(req);
+        if (typeof body.credential !== 'string' || !body.credential || body.credential.length > 16_384) throw new HttpError(400, 'Google did not return a valid sign-in response. Try again.');
+        const peer = req.socket.remoteAddress || 'unknown';
+        rate(`google-login:${peer}`, 200, 5 * 60_000);
+        const token = readCookie(req, GOOGLE_COOKIE);
+        const challenge = token && /^[a-f0-9]{64}$/.test(token) ? db.prepare('SELECT * FROM google_challenges WHERE token_hash=?').get(tokenHash(token)) as GoogleChallengeRow | undefined : undefined;
+        if (!challenge) throw new HttpError(401, 'Start Google sign-in from this browser and try again.');
+        // Atomically consume before network I/O so a credential response cannot be replayed.
+        db.prepare('DELETE FROM google_challenges WHERE token_hash=?').run(challenge.token_hash);
+        appendCookie(res, `${GOOGLE_COOKIE}=; Path=/api/auth/google; HttpOnly; SameSite=Strict; Max-Age=0${production ? '; Secure' : ''}`);
+        googleChallengeContext(req, challenge);
+        let identity: GoogleIdentity;
+        try { identity = await verifyGoogleCredential(body.credential, googleClientId); }
+        catch { throw new HttpError(401, 'Google sign-in could not be verified. Try the Google button again.'); }
+        validateGoogleIdentity(identity, challenge);
+        let linkingUser = googleChallengeContext(req, challenge);
+        let linked = db.prepare('SELECT * FROM google_accounts WHERE subject=?').get(identity.sub) as GoogleAccountRow | undefined;
+        let newPasswordHash: string | null = null;
+        if (challenge.intent === 'signin' && !linked) {
+          requireEnrollment(body.classCode, peer);
+          // Google-only accounts have an unguessable, discarded course password. A teacher
+          // can later reset it if a student needs the username/password sign-in option.
+          newPasswordHash = await passwordHash(randomBytes(32).toString('hex'));
+          linkingUser = googleChallengeContext(req, challenge);
+          linked = db.prepare('SELECT * FROM google_accounts WHERE subject=?').get(identity.sub) as GoogleAccountRow | undefined;
+        }
+        const email = identity.email.trim().toLowerCase();
+        let user: UserRow;
+        let created = false;
+        if (linked) {
+          if (linkingUser && linked.user_id !== linkingUser.id) throw new HttpError(409, 'That Google account is connected to another student. Use the Google account for this course account.');
+          const existing = db.prepare('SELECT * FROM users WHERE id=?').get(linked.user_id) as UserRow | undefined;
+          if (!existing || existing.disabled || existing.role !== 'student') throw new HttpError(403, 'This student account is unavailable. Ask Mr. Romine for help.');
+          user = existing;
+          db.prepare('UPDATE google_accounts SET email=? WHERE subject=?').run(email, identity.sub);
+        } else if (linkingUser) {
+          if (db.prepare('SELECT 1 FROM google_accounts WHERE user_id=?').get(linkingUser.id)) throw new HttpError(409, 'This course account is already connected to a different Google account. Ask Mr. Romine for help.');
+          db.prepare('INSERT INTO google_accounts(user_id,subject,email,created_at) VALUES(?,?,?,?)').run(linkingUser.id, identity.sub, email, isoNow());
+          audit(linkingUser.id, linkingUser.id, 'student.google_connected', {});
+          user = linkingUser;
+        } else {
+          requireEnrollment(body.classCode, peer);
+          if (!newPasswordHash) throw new HttpError(401, 'Start Google sign-in again.');
+          const id = randomUUID();
+          // An independent username avoids linking or overwriting any existing account by
+          // email or name. The Google subject is the only federated account identifier.
+          let username = `student-${randomBytes(6).toString('hex')}`;
+          while (db.prepare('SELECT 1 FROM users WHERE username=?').get(username)) username = `student-${randomBytes(6).toString('hex')}`;
+          const displayName = (typeof identity.name === 'string' ? identity.name.trim().slice(0, 80) : '') || email.split('@')[0].slice(0, 80) || 'Student';
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            db.prepare('INSERT INTO users(id,username,display_name,password_hash,role,created_at) VALUES(?,?,?,?,?,?)').run(id, username, displayName, newPasswordHash, 'student', isoNow());
+            db.prepare('INSERT INTO google_accounts(user_id,subject,email,created_at) VALUES(?,?,?,?)').run(id, identity.sub, email, isoNow());
+            audit(id, id, 'student.self_registered', { method: 'google' });
+            db.exec('COMMIT');
+          } catch (error) { db.exec('ROLLBACK'); throw error; }
+          user = findStudent(id); created = true;
+        }
+        // Linking keeps the already authenticated session. A delayed response must not
+        // install a new session cookie after another tab has signed the student out.
+        if (challenge.intent === 'signin') issueSession(req, res, user.id);
+        json(res, created ? 201 : 200, { user: publicUser(user) }); return;
+      }
       if (path === '/api/auth/login' && method === 'POST') {
         const body = await readBody(req);
         if (typeof body.username !== 'string' || typeof body.password !== 'string' || body.password.length > 256 || body.username.length > 80) throw new HttpError(400, 'Enter your username and password.');
@@ -255,18 +449,16 @@ export async function createApp(options: AppOptions = {}) {
         const fresh = user ? db.prepare('SELECT * FROM users WHERE id=?').get(user.id) as UserRow | undefined : undefined;
         if (!user || !match || !fresh || fresh.disabled || fresh.password_hash !== user.password_hash || fresh.username !== user.username) throw new HttpError(401, 'The username or password is incorrect, or this account is unavailable. Ask Mr. Romine if you need help.');
         rates.delete(`login-user:${username}`);
-        const token = randomBytes(32).toString('hex');
-        db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(now());
-        db.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').run(tokenHash(token), user.id, now()+SESSION_MS);
-        // Bound each account to a small number of simultaneous signed-in devices.
-        db.prepare('DELETE FROM sessions WHERE user_id=? AND token_hash NOT IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY expires_at DESC LIMIT 8)').run(user.id,user.id);
-        res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MS / 1000}${production ? '; Secure' : ''}`);
-        json(res, 200, { user: publicUser(user) }); return;
+        issueSession(req, res, fresh.id);
+        json(res, 200, { user: publicUser(fresh) }); return;
       }
       if (path === '/api/auth/logout' && method === 'POST') {
         const found = session(req);
         if (found) { db.prepare('DELETE FROM sessions WHERE token_hash=?').run(found.hash); db.prepare('DELETE FROM playback_sessions WHERE session_hash=?').run(found.hash); }
-        res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${production ? '; Secure' : ''}`);
+        const challengeToken = readCookie(req, GOOGLE_COOKIE);
+        if (challengeToken && /^[a-f0-9]{64}$/.test(challengeToken)) db.prepare('DELETE FROM google_challenges WHERE token_hash=?').run(tokenHash(challengeToken));
+        appendCookie(res, `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${production ? '; Secure' : ''}`);
+        appendCookie(res, `${GOOGLE_COOKIE}=; Path=/api/auth/google; HttpOnly; SameSite=Strict; Max-Age=0${production ? '; Secure' : ''}`);
         json(res, 200, { ok: true }); return;
       }
       if (path === '/api/progress' && method === 'GET') { const { user } = signedIn(req); json(res, 200, readProgress(user.id)); return; }
@@ -326,6 +518,22 @@ export async function createApp(options: AppOptions = {}) {
           .run(now(), seekTo ?? position, String(body.state), body.visible ? 1 : 0, row.token_hash);
         saveProgress(user.id, lesson.id, next);
         json(res, 200, { verifiedSeconds: verified, duration, watched, progress: next, ...(seekTo !== undefined ? { seekTo } : {}) }); return;
+      }
+      if (path === '/api/admin/enrollment' && method === 'GET') {
+        teacherOnly(req); json(res, 200, enrollment()); return;
+      }
+      if (path === '/api/admin/enrollment' && method === 'PATCH') {
+        teacherOnly(req); const body = await readBody(req); const { user } = teacherOnly(req);
+        if (typeof body.enabled !== 'boolean') throw new HttpError(400, 'Choose whether student sign-ups are open.');
+        db.prepare('UPDATE enrollment_settings SET enabled=? WHERE id=1').run(body.enabled ? 1 : 0);
+        audit(user.id, null, body.enabled ? 'enrollment.opened' : 'enrollment.closed', {});
+        json(res, 200, enrollment()); return;
+      }
+      if (path === '/api/admin/enrollment/rotate' && method === 'POST') {
+        teacherOnly(req); await readBody(req); const { user } = teacherOnly(req);
+        db.prepare('UPDATE enrollment_settings SET join_code=? WHERE id=1').run(newClassCode());
+        audit(user.id, null, 'enrollment.code_rotated', {});
+        json(res, 200, enrollment()); return;
       }
       if (path === '/api/admin/students' && method === 'GET') {
         teacherOnly(req);

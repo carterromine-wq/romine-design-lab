@@ -1,4 +1,14 @@
-export type User = { id: string; username: string; displayName: string; role: 'student' | 'teacher' };
+export type User = {
+  id: string; username: string; displayName: string; role: 'student' | 'teacher';
+  googleLinked?: boolean; googleEmail?: string | null;
+};
+
+export type AuthOptions = {
+  registrationEnabled: boolean;
+  googleEnabled: boolean;
+  googleClientId: string | null;
+  googleDomain: string | null;
+};
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); }

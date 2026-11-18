@@ -3,12 +3,14 @@
 ## First day
 
 1. Sign in with the teacher account: username `mrromine`, plus the password you set in Render.
-2. Create the student accounts in the teacher dashboard. Usernames should be unique; a class period plus student number works well.
-3. Save the generated login list as soon as it appears. Give students only their own username and password.
-4. Post the Render website address in Google Classroom.
-5. Have students sign in and start the first lesson.
+2. Find **Join your class** in the teacher dashboard and copy its class code.
+3. Post the [class website](https://mr-romine-design-lab-ndj5.onrender.com) and share the code with your students.
+4. Have new students select **Create account** and enter the code, a display name, a username, and their own password. They appear in your roster automatically.
+5. Students start the first lesson. Close signup when everyone has joined; you can reopen it for a new student.
 
 Students need this course login and their school-approved Figma login. They do not need ChatGPT, a new email address, or access to your teacher account.
+
+If Google sign-in has been configured, new students can use their school Google account and the class code instead of choosing a course password. The one-time setup is in [GOOGLE_SIGN_IN.md](GOOGLE_SIGN_IN.md).
 
 ## The student experience
 
@@ -35,15 +37,33 @@ There is no need to finish one entire lesson per period. The guided sequence and
 
 ## Student accounts
 
-### Create accounts
+### Student self-signup
 
-Create one account per student. A display name can be a first name, nickname, or school identifier; a full legal name is not necessary. Do not reuse one account for an entire class because progress belongs to the account.
+Use the **Join your class** card to copy the website link or class code, open or close signup, and generate a replacement code. The code is an invitation to create a student account; it does not sign anyone into an existing account or grant teacher access.
+
+Students choose a unique username with 3–40 lowercase letters, digits, periods, underscores, or hyphens and a password of 10–128 characters. A display name can be a first name, nickname, or school identifier. A full legal name and an email address are not required for username/password signup.
+
+Keep one account per student. If the student already has a login, use **Sign in**. Creating another account starts a separate progress record. Closing signup or changing the invitation code preserves all existing accounts and progress; it only changes who can create a new account.
+
+### Google sign-in and existing progress
+
+The Google button appears when the school's Google client ID is configured in Render. A new student uses **Create account**, enters the class code, and chooses Google. On later visits, that student can use Google from **Sign in** without the invitation code, even if new signup is closed.
+
+For a student who already has course work, have them sign in with their existing username and password, open **Resources & help**, and select **Connect Google**. This attaches Google to their current account and keeps their progress. The app does not merge accounts just because names or email addresses look similar.
+
+Google is a student login option. Your teacher account still uses `mrromine` and the teacher password stored in Render. If the school blocks the Google app, ask school IT to approve the OAuth client for the student accounts; use the ordinary course login while that is being arranged. See [Google's student app-access guidance](https://support.google.com/edu/classroom/answer/15163043?hl=en).
+
+### Create accounts manually
+
+You can still create individual accounts or paste a roster into **Add students**. This is useful when a student cannot use self-signup. Usernames should be unique; a class period plus student number works well. Do not reuse one account for an entire class because progress belongs to the account.
 
 Generated passwords are shown when an account is created or reset. Save or distribute them then; the server stores password hashes, not a readable password list.
 
 ### Forgotten password
 
 Use the teacher dashboard’s password reset for that student. Give the student the new password privately. Resetting a password signs out existing sessions for that account and preserves the student’s course progress.
+
+For Google login problems, the school's Google account recovery is separate from this app. A course password reset can provide a username/password login to the same course account; it does not change the student's Google password.
 
 ### Student leaves the class
 
@@ -87,6 +107,10 @@ If the teacher password must change, update `TEACHER_PASSWORD` in the Render ser
 | --- | --- |
 | The site will not start after deployment | Confirm `TEACHER_PASSWORD` has at least 12 characters, Node is 24.22.1, and the disk is mounted at `/var/data`. Read the Render deploy logs for the exact error. |
 | A student cannot sign in | Check the username, account status, and password. Reset the student password if needed. |
+| A new student cannot create an account | Check that signup is open, the current class code is correct, the username is available, and the password has at least 10 characters. |
+| The Google button is missing | Google sign-in needs `GOOGLE_CLIENT_ID` in Render and a deployment with that setting. Ordinary signup and password login remain available. |
+| Google says the app is blocked | Ask school IT to review the app's OAuth client and the student's organizational-unit policy. See the Google setup guide. |
+| Google opens a fresh course instead of existing progress | Sign out, return to the original course account with its username/password, and use Resources & help → Connect Google. If Google was already attached to a second account, ask for account assistance; the app does not merge records automatically. |
 | The next step is locked | Complete the current step. The video must finish through the course player, Build tasks must be checked in order, and Check requires all listed items. |
 | The video will not play | Check the school filter, reload the page, and use the teacher video approval only after an appropriate alternative. |
 | A saved project link is rejected | Use the full HTTPS link to the student’s own Figma design, file, or prototype—not a Community example or a folder link. |

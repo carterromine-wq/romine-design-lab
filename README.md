@@ -1,6 +1,11 @@
 # Mr. Romine’s Technology Class — Figma Design Lab
 
-A standalone classroom app with teacher-created student accounts, saved progress, and a guided course that opens one step at a time. Students do not need ChatGPT or an email address to sign in. They use their separate, school-approved Figma accounts to complete design work.
+A standalone classroom app with student self-signup, saved progress, and a guided course that opens one step at a time. Students join with a class code and choose their own username and password. Optional Google sign-in is also supported. Students do not need ChatGPT; an email address is not required for username/password signup. They use their separate, school-approved Figma accounts to complete design work.
+
+**Class website:** <https://mr-romine-design-lab-ndj5.onrender.com>  
+**Source repository:** <https://github.com/carterromine-wq/romine-design-lab>
+
+For the existing deployment, push application updates to `main`; Render builds them automatically. Keep the current service and its persistent disk to retain student progress. The publishing instructions below are for a new installation.
 
 ## Publish on Render
 
@@ -30,26 +35,38 @@ The disk is essential: this app stores its SQLite database under `/var/data`. Re
 
 Render prompts for the password because the Blueprint marks that environment variable `sync: false`; the secret is not included in the source code. [Blueprint setup](https://render.com/docs/infrastructure-as-code) · [Secret environment variables](https://render.com/docs/blueprint-spec#prompting-for-secret-values)
 
-### 3. Create student logins
+### 3. Let students join the class
 
 Sign in to the app with:
 
 - **Username:** `mrromine`
 - **Password:** the teacher password you entered in Render
 
-Open the teacher dashboard and create student accounts. Use school identifiers or simple usernames such as `period3-01`. Usernames use 3–40 lowercase letters, numbers, periods, underscores, or hyphens; display names can be 1–80 characters. Each account receives its own generated password. Save the generated credentials when they appear and give each student only their own login. The app does not email passwords or require students to create third-party accounts.
+In the teacher dashboard, open **Join your class** and copy the class code. Share the website link and code with your students. Each student selects **Create account**, enters the code, and chooses a display name, username, and password. The new account appears in your roster automatically.
+
+Usernames use 3–40 lowercase letters, numbers, periods, underscores, or hyphens; display names can be 1–80 characters. Student passwords must be 10–128 characters. A fresh installation starts with signup open and generates its class code once. The code and enrollment setting are stored on the persistent disk.
+
+Close signup after the class has joined, or rotate the code when you want a new invitation. These actions do not remove existing accounts or progress. Manual account creation remains available for individual students or a pasted roster.
 
 Use the teacher dashboard to reset a forgotten password or disable an account. See [TEACHER_GUIDE.md](docs/TEACHER_GUIDE.md) for everyday classroom use.
 
+### Optional: enable Google sign-in
+
+Follow [GOOGLE_SIGN_IN.md](docs/GOOGLE_SIGN_IN.md) for the one-time Google setup. The app needs a Google **Web application client ID**, configured with the exact classroom website origin, in Render's `GOOGLE_CLIENT_ID` environment variable. It uses Google Identity Services' ID-token flow; this implementation does not use a Google client secret.
+
+The Google button appears after that setting is configured and the service redeploys. New Google students still need the class code. Students who already have course progress should sign in with their existing username/password and use **Resources & help → Connect Google** to attach Google to the same account. The teacher account continues to use `mrromine` and its Render-configured password.
+
 ### 4. Check your classroom setup
 
-Before the first lesson, create one test student account and use it to check:
+Before the first lesson, join through **Create account** using a test student and use it to check:
 
 1. The student can sign in on a school computer.
 2. Only the first unfinished lesson and its available step can open.
 3. The official YouTube tutorial plays on the school network.
 4. A saved task or note remains after signing out and signing back in.
 5. The companion Figma file opens with the student’s approved Figma account.
+
+If Google is enabled, also test the Google button with an actual student school account and verify that linking Google to an existing test account retains its saved progress. School Google account policies can differ from a teacher's account.
 
 Use the final Render address in Google Classroom. The earlier `chatgpt.site` version is a separate deployment and does not receive these changes or share this version’s accounts/progress.
 
@@ -83,6 +100,8 @@ Use these only if you choose **New → Web Service** instead of the Blueprint:
 | `DATA_DIR` | `/var/data` |
 | `TEACHER_USERNAME` | `mrromine` |
 | `TEACHER_PASSWORD` | Your unique password, at least 12 characters |
+| `GOOGLE_CLIENT_ID` | Optional Google web client ID; omit to keep Google sign-in disabled |
+| `GOOGLE_ALLOWED_DOMAIN` | Optional exact Google Workspace hosted domain; see the Google setup guide |
 
 Render provides the listening port through `PORT`; leave that environment variable to Render. If you later add a custom domain, set `PUBLIC_ORIGIN` in Render to its exact HTTPS origin, such as `https://design.school.example`, and use that address consistently. Without an override, the app uses Render’s automatically supplied `RENDER_EXTERNAL_URL`. This origin check protects account and progress changes. This SQLite edition runs as one service instance. A persistent disk cannot be shared across scaled instances. [Render Blueprint fields](https://render.com/docs/blueprint-spec) · [Node version selection](https://render.com/docs/node-version)
 
@@ -109,6 +128,7 @@ Open `http://localhost:3000`. Local accounts and progress are stored in `data/`,
 - Schedule updates outside class; a service with a persistent disk can have a brief interruption during deployment.
 - Preserve your database when moving the app to another service. Copying the source code alone does not copy student accounts or progress.
 - Keep teacher credentials and exported student logins private. A password reset is the supported way to issue a replacement student password.
+- Share the class code with the intended students. Closing signup prevents new self-created accounts; it does not prevent existing students from signing in.
 - Before changing the database or moving hosting, use the teacher dashboard’s database backup download. The app creates a consistent SQLite snapshot of `course.sqlite`; copying a live database file by itself can miss its write-ahead log.
 - Keep backups private: they contain accounts, password hashes, and student work records. Recovery requires stopping the app and restoring a validated snapshot as `/var/data/course.sqlite`; arrange that migration before deleting the original service or disk.
 
